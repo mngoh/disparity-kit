@@ -34,7 +34,7 @@ def main():
     keys = list(out["sources"])
     if len(keys) >= 2:
         a, b = out["sources"][keys[0]], out["sources"][keys[1]]
-        for cat in set(a["ratios"]) & set(b["ratios"]):
+        for cat in [c for c in a["ratios"] if c in b["ratios"]]:  # stable order, so reruns do not reshuffle the output
             out["comparison"][cat] = {g: {"first": a["ratios"][cat][g], "second": b["ratios"][cat].get(g),
                                           "change_pct": round((b["ratios"][cat][g] / a["ratios"][cat][g] - 1) * 100) if b["ratios"][cat].get(g) else None}
                                       for g in a["ratios"][cat]}

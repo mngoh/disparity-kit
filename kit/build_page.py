@@ -1,5 +1,12 @@
 """Render the findings page and the README results block from out/results.json (and out/replication.json if present).
 
+Project-specific checks plug in through out/extra_sections.json, written by the project's own scripts so their
+numbers are generated too: {"tests": [box], "reporting": {"title", "text"}, "sections": [{"title", "note",
+"boxes": [box], "findings": [{"title", "text", "red"}]}], "readme": [[label, text]]}, where a box is {"id", "title",
+"text", "labels", "datasets": [{"label", "data", "color"}], "ytitle", "kind": "bar" or "line", "horizontal", "tall",
+"legend"} and color is one of red, blue, blueLight, muted, grey2. Tests join the rival-explanation grid, reporting
+replaces the default reporting note, and sections follow it.
+
 House style: near-black background, red for the focus group, blue for comparisons, outlined bars, Chart.js,
 mobile friendly, no em dashes. Every sentence with a number is generated from the results, so text cannot go stale.
 Sections appear only when the data supports them.
@@ -35,6 +42,7 @@ def main():
     p = Project(sys.argv[1])
     cfg, R = p.cfg, p.read_json("results.json")
     rep = json.loads((p.out / "replication.json").read_text()) if (p.out / "replication.json").exists() else None
+    extra = json.loads((p.out / "extra_sections.json").read_text()) if (p.out / "extra_sections.json").exists() else {}
     G, S = p.focus
     FL = esc(p.focus_label)
     sexw = SEX_WORD[S][0]
@@ -115,6 +123,7 @@ def main():
         ty = T["type"]
         tests.append(box("typeChart", "Type", "Rates by type: " + "; ".join(f"{klabel(k).lower()} {x(ty[k][G] / ty[k][ranked[0]])} times {ranked[0]} {sexw}" for k in kinds if ty[k][ranked[0]]) + "."))
         bars("typeChart", groups, [(klabel(k), [ty[k][g] for g in groups], c) for k, c in zip(kinds, ["C.red", "C.blue", "C.muted"])], "Victims per 100,000 per year")
+        notes.append(("Type", "; ".join(f"{klabel(k).lower()} " + ", ".join(f"{x(ty[k][G] / ty[k][g])} times {g}" for g in ranked if ty[k][g]) for k in kinds)))
     tm = T["time"]; ys = list(tm)
     if len(ys) > 1:
         tests.append(box("timeChart", "Time", f"Does it persist? {FL}: " + ", ".join(fmt(tm[y][G]) for y in ys) + f" per 100,000, {ys[0]} to {ys[-1]}."))
@@ -124,18 +133,39 @@ def main():
         pr = T["premises"]
         tests.append(box("premChart", "Premises", f"Different places? Share of each group's {ev['plural']}, top premises for {FL}.", tall=True))
         bars("premChart", pr["labels"], [(p.focus_label, pr["focus"], "C.red"), (f"Other {sexw}", pr["other"], "C.blue")], "% of victims", horizontal=True)
+        notes.append(("Premises", ", ".join(f"{pr['labels'][i]} {pr['focus'][i]}% vs {pr['other'][i]}%" for i in range(min(3, len(pr["labels"])))) + f" ({FL} vs other {sexw})"))
     if "weapons" in T:
         wp = T["weapons"]
         tests.append(box("weapChart", "Weapons", f"Different circumstances? Firearm or not, by share of each group's {ev['plural']}." if "Firearm" not in wp["labels"] else
                          f"A firearm in {wp['focus'][wp['labels'].index('Firearm')]}% of {ev['plural']} on {FL} against {wp['other'][wp['labels'].index('Firearm')]}% for other {sexw}."))
         bars("weapChart", wp["labels"], [(p.focus_label, wp["focus"], "C.red"), (f"Other {sexw}", wp["other"], "C.blue")], "% of victims")
+        notes.append(("Weapons", ", ".join(f"{lab} {f}% vs {o}%" for lab, f, o in zip(wp["labels"], wp["focus"], wp["other"])) + f" ({FL} vs other {sexw})"))
     for flag, fl in T.get("flags", {}).items():
         lab = cfg["flags"][flag].get("label", flag.title())
         r_f, r_u = fl["ratios"]["flagged"], fl["ratios"]["unflagged"]
         tests.append(box(f"flag_{flag}", lab, f"{lab} is {fl['share'][G]}% of {ev['plural']} on {FL} (" + ", ".join(f"{fl['share'][g]}% {g}" for g in others) +
                          f"). Ratio to {ranked[0]} {sexw}: {x(r_f.get(ranked[0], 0))} with, {x(r_u.get(ranked[0], 0))} without."))
         bars(f"flag_{flag}", groups, [(lab, [fl["rates"]["flagged"][g] for g in groups], "C.blue"), (f"Not {lab.lower()}", [fl["rates"]["unflagged"][g] for g in groups], "C.red")], "Victims per 100,000 per year")
-    reporting = (f'<div class="finding"><h4>Reporting: not testable here</h4><p>Police data holds only what was reported. If {FL} report more or less often than other {sexw}, every rate here moves, and this data cannot say which way.</p></div>')
+        notes.append((lab, f"{fl['share'][G]}% of {ev['plural']} on {FL} (" + ", ".join(f"{fl['share'][g]}% {g}" for g in others) + "); ratios with it "
+                      + ", ".join(f"{x(r_f[g])}x {g}" for g in ranked if g in r_f) + "; without it " + ", ".join(f"{x(r_u[g])}x {g}" for g in ranked if g in r_u)))
+    COLOR = {"red": "C.red", "blue": "C.blue", "blueLight": "C.blueLight", "muted": "C.muted", "grey2": "C.grey2"}
+
+    def extra_box(b):
+        ds = [(d["label"], d["data"], COLOR.get(d.get("color", "blue"), "C.blue")) for d in b["datasets"]]
+        if b.get("kind", "bar") == "line":
+            lines(b["id"], b["labels"], ds, b.get("ytitle", ""))
+        else:
+            bars(b["id"], b["labels"], ds, b.get("ytitle", ""), horizontal=b.get("horizontal", False), legend=b.get("legend", True))
+        return box(b["id"], b["title"], esc(b["text"]), tall=b.get("tall", False))
+    tests += [extra_box(b) for b in extra.get("tests", [])]
+    notes += [tuple(n) for n in extra.get("readme", [])]
+    rp = extra.get("reporting", {"title": "Reporting: not testable here", "text": f"Police data holds only what was reported. If {p.focus_label} report more or less often than other {sexw}, every rate here moves, and this data cannot say which way."})
+    reporting = f'<div class="finding"><h4>{esc(rp["title"])}</h4><p>{esc(rp["text"])}</p></div>'
+    sections_html = "".join(
+        f'<div class="section-title">{esc(sec["title"])}</div>' + (f'<p class="note">{esc(sec["note"])}</p>' if sec.get("note") else "")
+        + grid([extra_box(b) for b in sec.get("boxes", [])])
+        + ('<div class="findings">' + "".join(f'<div class="finding{" red" if f.get("red") else ""}"><h4>{esc(f["title"])}</h4><p>{esc(f["text"])}</p></div>' for f in sec.get("findings", [])) + "</div>" if sec.get("findings") else "")
+        for sec in extra.get("sections", []))
 
     # model
     model_html = ""
@@ -182,7 +212,8 @@ def main():
     pop = p.read_json("population.json")
     if pop.get("hispanic_overlap", {}).get(G):
         cav.append(("Overlapping groups", f"{pop['hispanic_overlap'][G]}% of {G} residents are also Hispanic, so they sit in both denominators."))
-    cav.append(("Who is counted", f"{fmt(c['total'] - c['known'])} victims with unknown race or sex are left out. Unknown race is {c['unknown_race_share_by_sex']['F']}% among women and {c['unknown_race_share_by_sex']['M']}% among men."))
+    cav.append(("Who is counted", f"{fmt(c['total'] - c['known'])} victims are left out of the rates: their sex is unknown, or their race is unknown or outside the compared groups. "
+                f"Race is unknown or outside the groups for {c['unknown_race_share_by_sex']['F']}% of women and {c['unknown_race_share_by_sex']['M']}% of men."))
     cav += [(h, t) for h, t in cfg.get("extra_caveats", [])]
     cav_html = '<div class="section-title">Caveats</div><div class="findings">' + "".join(f'<div class="finding red"><h4>{esc(h)}</h4><p>{esc(t)}</p></div>' for h, t in cav) + "</div>"
 
@@ -197,9 +228,9 @@ def main():
     page = TEMPLATE.format(
         title=esc(cfg["title"]), description=esc(lede), lede=esc(lede), author=esc(cfg.get("author", "")), window=f"{start} to {end}", total=fmt(c["total"]),
         nav=nav, question=esc(question), answer="".join(f"<p>{esc(a)}</p>" for a in answer), cards=cards_html, overview=grid(ov),
-        tests=grid(tests), reporting=f'<div class="findings">{reporting}</div>', model=model_html, replication=rep_html, caveats=cav_html,
+        tests=grid(tests), reporting=f'<div class="findings">{reporting}</div>' + sections_html, model=model_html, replication=rep_html, caveats=cav_html,
         method=f'Rates are victims per 100,000 residents per year over {R["years"]} years; cells under {fmt(p.min_pop)} residents are not rated. {sexw.title()} only from the tests onward. Sources: {sources}.',
-        js="\n  ".join(js), groups_n=fmt(T["n"]["focus"]), others_n=fmt(T["n"]["other"]), focus=FL, sexw=sexw)
+        js="\n  ".join(js), groups_n=fmt(T["n"]["focus"]), others_n=fmt(T["n"]["other"]), focus=FL, sexw=sexw, sexw_cap=sexw.capitalize())
     for bad in ["—", "–"]:
         page = page.replace(bad, ", " if bad == "—" else " to ")
     out = p.root / cfg.get("page_path", "index.html")
@@ -300,7 +331,7 @@ TEMPLATE = """<!DOCTYPE html>
   {cards}
   {overview}
   <div class="section-title">Testing explanations</div>
-  <p class="note">{sexw} only ({groups_n} {focus}, {others_n} other {sexw}). Each cut asks whether a plain explanation accounts for the gap.</p>
+  <p class="note">{sexw_cap} only ({groups_n} {focus}, {others_n} other {sexw}). Each cut asks whether a plain explanation accounts for the gap.</p>
   {tests}
   {reporting}
   {model}

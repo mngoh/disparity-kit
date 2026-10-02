@@ -18,7 +18,7 @@ One file per project. Paths are relative to the folder holding it. Outputs go to
 | `sex_values` | no | Raw sex code to `F` or `M`. Default `{"F": "F", "M": "M"}`. |
 | `groups` | yes | Group names, each one of Black, Hispanic, White, Asian, AIAN, NHPI, Other, Multiracial (they pick the ACS tables). |
 | `focus.group`, `focus.sex`, `focus.label` | yes | The group and sex at the center of the question, for example Black, F, "Black women". |
-| `flags` | no | Subtypes by code: `{"partner": {"column": "code", "values": ["626", "236"], "label": "Intimate partner"}}`. |
+| `flags` | no | Subtypes: `{"partner": {"column": "code", "values": ["626", "236"], "label": "Intimate partner"}}`. `column` is a standard name from `columns` or any column in the incident files (for example a NIBRS relationship flag). |
 | `districts` | no | `geojson_url` or `geojson_path`, `name_field`, optional `rename` (GeoJSON name to data name), `label` (for example "LAPD division"), `title_case` (default true). |
 | `covariates` | no | List of `{"path", "label"}`: tract CSVs with `geoid` plus numeric columns. |
 | `weapon_classes` | no | List of `{"label", "keywords"}` to override the default weapon classes. |

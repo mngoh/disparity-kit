@@ -135,7 +135,9 @@ def load_incidents(project):
     df.loc[(df["lat"].abs() < 1) | (df["lon"].abs() < 1), ["lat", "lon"]] = np.nan  # 0 is a common "missing" code
     df["code"] = df["code"].astype(str).str.strip().str.replace(r"\.0$", "", regex=True)
     for name, rule in cfg.get("flags", {}).items():
-        df[name] = df[rule.get("column", "code")].astype(str).isin([str(v) for v in rule["values"]])
+        col = rule.get("column", "code")  # a standard name, or any column in the incident files
+        src = df[col] if col in df else raw.loc[df.index, col]
+        df[name] = src.astype(str).str.strip().isin([str(v) for v in rule["values"]])
     if "id" in cols:
         before = len(df)
         df = df.drop_duplicates("id")
