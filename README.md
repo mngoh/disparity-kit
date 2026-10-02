@@ -8,6 +8,9 @@ Built from the [Los Angeles assault analysis](https://mngoh.github.io/LA-Crime/)
 
 | Skill | Does |
 |---|---|
+| `/new-city` | Starts from a city name: runs `/source-finder` and `/schema-mapper`, then hands the draft config to `/disparity-analysis`. |
+| `/source-finder` | Searches open-data portals (Socrata, ArcGIS) for incident data, checks whose race each dataset records, code legends, dates, records-system breaks and location, finds district boundaries, and downloads the chosen dataset through its API. |
+| `/schema-mapper` | Drafts `analysis.json` from the data: columns, race and sex maps from the portal's legends, Census place, district names matched to polygons by location. Flattens FBI NIBRS state files for cities whose portal has no victim race. |
 | `/disparity-analysis` | Runs the whole pipeline in order, and asks the three decisions that belong to a person: the question, what counts, the window. |
 | `/data-audit` | Every offense code, monthly coverage with records-system breaks, missing and coded-missing values, duplicates. Works on any CSV. |
 | `/rate-denominators` | ACS population by group, sex and age for a place and its tracts (Census Reporter, no key), tract socioeconomics, district assignment, race-coding bound. |
@@ -32,12 +35,19 @@ In Claude Code, from a folder holding the data:
 /disparity-analysis data/incidents.csv
 ```
 
+Or start from a city name, and the kit finds the data and drafts the config:
+
+```
+/new-city "Chicago, IL" assault victims
+```
+
 Or run any step alone. Each project keeps one `analysis.json` ([reference](docs/config.md)); outputs go to `out/`. See [examples/la-assault](examples/la-assault/analysis.json).
 
 ## Layout
 
 ```
-kit/          common.py, audit.py, denominators.py, analyze.py, replicate.py, bias_scan.py, build_page.py
+kit/          common.py, audit.py, denominators.py, analyze.py, replicate.py, bias_scan.py, build_page.py,
+              sources.py, fields.py, schema.py, prepare.py, nibrs.py (finding and mapping a new city's data)
 skills/       one folder per skill, each with SKILL.md
 docs/         config.md (every config key), lessons.md (mistakes this kit checks for)
 examples/     la-assault/analysis.json

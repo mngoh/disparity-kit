@@ -25,7 +25,7 @@ Ask these together, once, after the audit (step 1) so the choices are informed. 
 Run each skill's step in order. Each one can also be run on its own.
 
 1. `/data-audit` on every raw file. Read the whole report.
-2. Ask the three decisions. Write `analysis.json` in a project folder (see the config reference). Keep raw data paths relative.
+2. Ask the three decisions. Write `analysis.json` in a project folder (see the config reference). Keep raw data paths relative. If the project has an `analysis.draft.json` from `/new-city`, build from it: it holds everything except the decisions (see `/new-city` step 3).
 3. `/rate-denominators`: population, tracts, districts, race-coding bound.
 4. `/disparity-tests`: rates, rival explanations, model.
 5. `/replicate-check` if a second source exists (new records system, later years, another agency). Skip with a note if none does.
