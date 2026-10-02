@@ -19,7 +19,9 @@ Each step can run alone. Read `~/.claude/disparity-kit/docs/lessons.md` before s
 
 ## 0. Set up
 
-Ask for the topic if none was given (the LA and DC analyses were assault victims). Make a project folder named like the others, `<City>-<Topic>` (for example `Chicago-Assault`), next to the user's other projects unless they say otherwise. Inside it, create `data/raw/` and `out/`.
+Ask for the topic if none was given (the LA, DC and Baltimore analyses were assault victims). Make a project folder next to the user's other projects unless they say otherwise, and inside it create `data/raw/` and `out/`.
+
+Name the folder, and later the GitHub repo, for what it holds: place, state, what is measured and the years, `<City>-<ST>-<Topic>-Rates-by-Race-and-Sex-<start>-<end>` (for example `Richmond-VA-Assault-Victim-Rates-by-Race-and-Sex-2022-2024`). The years are only known after the decisions, so start with a working name. Rename the folder after the decisions, once downloads have finished writing into it, and before `git init`.
 
 ## 1. `/source-finder "<City, ST>" [topic]`
 
