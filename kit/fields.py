@@ -28,7 +28,7 @@ ROLES = {
     "victim_type": [["victim", "type"], ["vic", "type"]],
 }
 # tokens that disqualify a column for a role even when its rule matches
-NOT = {"date": {"time", "hour", "updated", "modified", "edited", "created", "load"}, "age": {"page", "usage", "agency"},
+NOT = {"date": {"hour", "updated", "modified", "edited", "created", "load"}, "age": {"page", "usage", "agency"},
        "code": {"zip", "district", "area", "premis", "premise", "weapon", "status", "location", "mo", "mocodes", "desc", "description", "name"},
        "desc": {"premis", "premise", "weapon", "status", "location", "mo", "victim", "iucr", "secondary"},
        "district": {"rpt", "reporting", "council", "school", "type", "code", "cd", "num", "no", "id", "state", "house", "senate",
@@ -65,6 +65,8 @@ def role_rank(name, role):
     ts = set(toks)
     if ts & NOT.get(role, set()):
         return None
+    if role == "date" and "time" in ts and "date" not in ts:
+        return None  # time_occ is a time of day; CrimeDateTime is a date
     for i, rule in enumerate(ROLES[role]):
         if all(t in ts for t in rule):
             if role in ("lat", "lon") and rule in (["y"], ["x"]) and len(toks) > 2:

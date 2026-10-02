@@ -69,7 +69,7 @@ Null on purpose: `title`, `window`, `event`, `groups`, `focus`, `flags`, and the
 $PY $K/kit/prepare.py data/raw/<file>.csv --code <code column> --kind simple=<codes> --kind aggravated=<codes> --out-dir data --prefix <city>_
 ```
 
-Add `--keep <column>=<values>` to keep only individuals or one agency, and `--hispanic-first --race <col> --ethnicity <col>` for a combined race column. Each run writes `data/prepare.json` with the rule and counts.
+Add `--keep <column>=<values>` to keep only individuals or one agency, and `--hispanic-first --race <col> --ethnicity <col>` for a combined race column. If the district column changes scheme inside the window (Baltimore redistricted in 2023), add `--district-from out/districts.json --lat <col> --lon <col>`: it places every incident in the boundary file's districts by its coordinates, as `district_geo`, named the way the denominators name them. Each run writes `data/prepare.json` with the rule and counts.
 
 ## NIBRS sources
 

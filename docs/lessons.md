@@ -1,6 +1,6 @@
 # Lessons from past runs
 
-Each of these happened on the Los Angeles assault analysis. Check for all of them every time.
+Each of these happened on a past analysis: 1 to 14 on Los Angeles assault, 15 to 19 on Baltimore assault. Check for all of them every time.
 
 1. **Related codes were left out.** LAPD coded intimate partner assault separately (626, 236). The first analysis used only 624 and 230 and missed 55,578 assaults, about half of all assaults on women. Read the full code list in the audit.
 2. **An old download was stale.** The portal had been revised (late reports) and extended past the file's end. Pull fresh from the API.
@@ -16,3 +16,8 @@ Each of these happened on the Los Angeles assault analysis. Check for all of the
 12. **A covariate looked meaningful because of how it was built.** Homelessness entered as one person per tent. Test alternative definitions; here they changed nothing.
 13. **A claim was nearly published without a source.** Verify every external figure by opening the source.
 14. **Interpretation drifted toward causes.** "Consistent with domestic violence" was written before the data was checked, and the check contradicted it. Test a reading before writing it.
+15. **Whose race it was sat in the dataset description.** Baltimore's columns are named Race, Gender, Age and Ethnicity, with no field descriptions; only the data dictionary in the dataset's description says they are the victim's. Read the description before calling a race column victim race, or before ruling it out.
+16. **The district map changed inside the window.** Baltimore redrew its police districts in 2023; the data names the old district before mid-2023 and the new one after, and the new-district column is blank (written "N/A") before that. Place every incident in one boundary file by its coordinates (`prepare.py --district-from`), and say so.
+17. **Missing values were written as text.** "N/A" in a district column looked like a district. Check every column for words that mean missing, not only blanks, zeros and UNKNOWN.
+18. **Ethnicity started partway through, and the Hispanic comparison could not be bounded.** Baltimore began recording ethnicity in June 2021 and it is unknown for 41.6% of women victims. With a small Hispanic population, moving White women of unknown ethnicity into the Hispanic group took Black women's ratio from 1.62x to 0.82x Hispanic women's. When the range crosses 1, the comparison cannot be headlined either way.
+19. **Timestamps labeled UTC were local.** The portal says its dates are UTC, but assaults bottom out at 5 to 6 a.m. in the stored hours, the local overnight low. Check the hour pattern before shifting time zones; a wrong shift moves late-evening assaults into the next day and year.

@@ -10,6 +10,10 @@ recording the rule and the counts, so the split can be repeated. A code listed u
 --hispanic-first   for sources that record ethnicity apart from race: adds --race-out, which is "H" when the ethnicity
                    column holds a --hispanic value and the recorded race otherwise. Unknown ethnicity keeps the recorded
                    race (as in DC). That is a method choice; say so in the caveats.
+--district-from out/districts.json --lat COL --lon COL
+                   adds district_geo: the district whose polygon holds the incident's coordinates, named as the
+                   denominators name it (rename, then title case). For sources whose district column changes scheme
+                   mid-window (Baltimore redistricted in 2023). Missing coordinates leave it missing.
 """
 import argparse
 import json
@@ -24,6 +28,27 @@ def norm(s):
     return s.astype(str).str.strip().str.replace(r"\.0$", "", regex=True)
 
 
+def district_by_location(df, districts, lat, lon):
+    from shapely import points
+    from shapely.geometry import shape
+    from shapely.strtree import STRtree
+    from schema import load_geojson
+    cfg = districts["config"]
+    gj = load_geojson(cfg.get("geojson_url") or cfg.get("geojson_path"))
+    feats = [f for f in gj["features"] if f.get("geometry")]
+    rename, title = cfg.get("rename", {}), cfg.get("title_case", True)
+    names = [str(f["properties"][cfg["name_field"]]) for f in feats]
+    names = [rename.get(n, n.title() if title else n) for n in names]  # as denominators.py names them
+    y, x = pd.to_numeric(df[lat], errors="coerce"), pd.to_numeric(df[lon], errors="coerce")
+    ok = (y.abs() > 1) & (x.abs() > 1)
+    out = pd.Series(np.nan, index=df.index, dtype=object)
+    idx = np.flatnonzero(ok.to_numpy())
+    pi, gi = STRtree([shape(f["geometry"]) for f in feats]).query(points(x.to_numpy()[idx], y.to_numpy()[idx]), predicate="within")
+    first = pd.DataFrame({"pt": pi, "poly": gi}).drop_duplicates("pt")
+    out.iloc[idx[first["pt"].to_numpy()]] = [names[g] for g in first["poly"]]
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("csv"); ap.add_argument("--code", required=True); ap.add_argument("--kind", action="append", required=True)
@@ -31,6 +56,7 @@ def main():
     ap.add_argument("--keep", action="append", default=[])
     ap.add_argument("--hispanic-first", action="store_true"); ap.add_argument("--race"); ap.add_argument("--ethnicity")
     ap.add_argument("--hispanic", default="H"); ap.add_argument("--race-out", default="race_group")
+    ap.add_argument("--district-from"); ap.add_argument("--lat"); ap.add_argument("--lon")
     a = ap.parse_args()
 
     kinds = {}
@@ -62,6 +88,13 @@ def main():
         df[a.race_out] = np.where(df[a.ethnicity].str.strip().isin(hisp), "H", df[a.race])
         rule["race_rule"] = {"column": a.race_out, "hispanic_values": hisp, "from": [a.race, a.ethnicity],
                              "note": "Hispanic of any race first, otherwise the recorded race; unknown ethnicity keeps the recorded race"}
+    if a.district_from:
+        if not (a.lat and a.lon):
+            sys.exit("--district-from needs --lat and --lon")
+        df["district_geo"] = district_by_location(df, json.loads(pathlib.Path(a.district_from).read_text()), a.lat, a.lon)
+        rule["district_rule"] = {"column": "district_geo", "from": [a.lat, a.lon], "boundaries": json.loads(pathlib.Path(a.district_from).read_text())["config"],
+                                 "located_pct": round(float(df.loc[keep & code.isin(seen), "district_geo"].notna().mean()) * 100, 1)}
+        print(f"district_geo: {rule['district_rule']['located_pct']}% of kept rows placed in a district")
     out_dir = pathlib.Path(a.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     for name, codes in kinds.items():

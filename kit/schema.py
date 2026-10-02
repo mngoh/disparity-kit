@@ -34,7 +34,7 @@ STATES = {"AL": "01", "AK": "02", "AZ": "04", "AR": "05", "CA": "06", "CO": "08"
           "UT": "49", "VT": "50", "VA": "51", "WA": "53", "WV": "54", "WI": "55", "WY": "56", "PR": "72"}
 TIGER = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb"
 CR = "https://api.censusreporter.org/1.0"
-CODED_MISSING = {"", "0", "X", "U", "UNK", "UNKNOWN", "NAN", "NONE", "NULL", "-", "?"}
+BLANK = {"", "N/A", "NA", "NULL", "NONE", "NAN", "-"}  # read as missing here and by pandas when the kit loads the file
 
 
 def header(path):
@@ -67,8 +67,11 @@ def cmd_map(a):
         lst = ([roles[role]] if role in roles else []) + [f for f in lst if f != roles.get(role)]  # guess_roles' pick first (it prefers the victim's column)
         for f in lst[:4]:
             s = df[f].str.strip()
-            filled = s[s != ""]
-            ev = {"field": f, "blank_pct": share(s == ""), "distinct": int(filled.nunique())}
+            blank = s.str.upper().isin(BLANK)
+            filled = s[~blank]
+            ev = {"field": f, "blank_pct": share(blank), "distinct": int(filled.nunique())}
+            if (s.isin(["N/A", "NA", "NULL", "NONE"])).any():
+                ev["blank_codes"] = s[s.isin(["N/A", "NA", "NULL", "NONE"])].value_counts().to_dict()
             if role in ("race", "sex", "age", "ethnicity"):
                 ev["subject"] = subject(f, meta.get(f, {}).get("description", ""))
             ok = True
@@ -94,6 +97,9 @@ def cmd_map(a):
                 ok = ev["distinct"] <= (12 if role == "sex" else 80)
             elif role == "district":
                 ok = 2 <= ev["distinct"] <= 300
+                # several district columns (Baltimore: Old_District, New_District): take the fullest
+                blanks = {g: float(df[g].str.strip().str.upper().isin(BLANK).mean()) for g in lst[:4] if 2 <= df[g].nunique() <= 301}
+                ok = ok and f == min(blanks, key=lambda g: (round(blanks[g], 2), lst.index(g)))
                 ev["values"] = filled.value_counts().head(40).to_dict()
             elif role == "id":
                 ev["duplicate_rows"] = int(filled.duplicated().sum())
@@ -224,10 +230,12 @@ def cmd_districts(a):
         purity = sum(p * n for _, p, n in top) / sum(n for _, _, n in top)
         mapped = {name: d for name, (d, p, nn) in top.items()}
         one_to_one = len(set(mapped.values())) == len(mapped)
-        cand = (one_to_one, round(purity, 4), f, top)
-        if best is None or cand[:2] > best[:2]:
+        # among fields that place points equally well, prefer the one needing the fewest renames (names over numbers)
+        renames = min(sum(n.title() != d for n, d in mapped.items()), sum(n != d for n, d in mapped.items()))
+        cand = (one_to_one, round(purity, 3), -renames, f, top)
+        if best is None or cand[:3] > best[:3]:
             best = cand
-    one_to_one, purity, name_field, top = best
+    one_to_one, purity, _, name_field, top = best
     mapping = {name: {"data_name": d, "agreement_pct": round(p * 100, 1), "points": int(nn)} for name, (d, p, nn) in top.items()}
     renames = {}
     for tc in (True, False):

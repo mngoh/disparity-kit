@@ -171,7 +171,7 @@ def main():
     model_html = ""
     if M:
         lad = M["ladder"]; fin = lad[-1]
-        mc = [box("ladderChart", "Surviving rate ratio", f"Crude {lad[0]['rate_ratio']}x. Fully adjusted {fin['rate_ratio']}x (95% CI {fin['ci_low']} to {fin['ci_high']}). Controls account for about {M['explained_pct']}% of the excess.", tall=True)]
+        mc = [box("ladderChart", "Surviving rate ratio", f"Crude {lad[0]['rate_ratio']}x. Fully adjusted {fin['rate_ratio']}x (95% CI {fin['ci_low']} to {fin['ci_high']}). " + (f"Controls account for about {M['explained_pct']}% of the excess." if M['explained_pct'] is None or M['explained_pct'] >= 0 else "The controls widen the gap rather than narrow it."), tall=True)]
         bars("ladderChart", [m["model"] for m in lad], [("Rate ratio", [m["rate_ratio"] for m in lad], "C.red")], f"{p.focus_label}'s rate as a multiple of other {sexw}'s", horizontal=True, legend=False)
         if len(M["by_kind"]) > 1:
             mc.append(box("kindModel", "Fully adjusted, by type", "The same controls, run separately: " + "; ".join(f"{klabel(k).lower()} {v['rate_ratio']}x" for k, v in M["by_kind"].items()) + "."))
@@ -186,7 +186,7 @@ def main():
         model_html = (f'<div class="section-title">The model</div><p class="note">How much of the gap survives adjustment, one control at a time. Poisson rate models at the census-tract level, '
                       f'{sexw} only, {fmt(M["cells"])} tract by group by age by year cells, covering {M["coverage"]["focus"]}% of located {FL} victims and {M["coverage"]["other"]}% of other {sexw}.</p>'
                       + grid(mc) +
-                      f'<div class="findings"><div class="finding red"><h4>What the model says</h4><p>A {fin["rate_ratio"]}-fold gap remains after every measured control. About {M["explained_pct"]}% of the crude excess is explained.</p></div>'
+                      f'<div class="findings"><div class="finding red"><h4>What the model says</h4><p>A {fin["rate_ratio"]}-fold gap remains after every measured control. {f"About {M['explained_pct']}% of the crude excess is explained." if M["explained_pct"] is None or M["explained_pct"] >= 0 else f"None of the crude excess is explained: adjusted, the gap is wider than the crude {lad[0]['rate_ratio']}x."}</p></div>'
                       f'<div class="finding"><h4>What it cannot say</h4><p>Residents are the denominator, so exposure away from home is unmeasured. Reporting behavior is invisible to police data. Nothing here measures offenders or circumstances.</p></div></div>')
 
     # replication

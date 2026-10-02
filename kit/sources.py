@@ -19,6 +19,7 @@ import argparse
 import concurrent.futures as cf
 import csv
 import datetime as dt
+import html
 import io
 import json
 import pathlib
@@ -201,6 +202,7 @@ def ags_inspect(layer):
     out = {"platform": "arcgis", "url": layer, "api": layer, "title": meta.get("name"), "publisher": (meta.get("copyrightText") or "")[:120],
            "updated": _ts((meta.get("editingInfo") or {}).get("dataLastEditDate"), ms=True), "description": re.sub("<[^>]+>", " ", meta.get("description") or "")[:600],
            "columns": cols, "geometry": meta.get("geometryType"), "max_records": meta.get("maxRecordCount")}
+    item_dictionary(meta, out)
     out["rows"] = ags_q(layer, returnCountOnly="true").get("count")
     oid = meta.get("objectIdField") or next((c["field"] for c in cols if c["type"] == "oid"), None)
 
@@ -216,6 +218,28 @@ def ags_inspect(layer):
         typ = next((c["type"] for c in cols if c["field"] == f), "")
         return {k: _ts(a[k], ms=True) if typ == "date" else a[k] for k in ("lo", "hi")}
     return out, values, span, None
+
+
+def item_dictionary(meta, out):
+    """Hub datasets often keep their data dictionary in the item description ("Race  Race of the victim."), not on the
+    fields. Fill empty field descriptions from it, and take the item's title and description."""
+    if not meta.get("serviceItemId"):
+        return
+    try:
+        item = get_json(f"https://www.arcgis.com/sharing/rest/content/items/{meta['serviceItemId']}", {"f": "json"})
+    except Exception:
+        return
+    text = " ".join(html.unescape(re.sub("<[^>]+>", " ", item.get("description") or "")).split())
+    out["title"] = item.get("title") or out["title"]
+    out["publisher"] = out["publisher"] or item.get("owner")
+    out["description"] = (text or out["description"])[:600]
+    start = text.upper().find("DATA DICTIONARY")
+    body = re.sub(r"Field Name\s+Description", " ", text[start if start >= 0 else 0:])
+    pos = sorted((m.start(), m.end(), c) for c in out["columns"] for m in [re.search(rf"(?<![\w]){re.escape(c['field'])}(?![\w])", body)] if m)
+    for i, (a, b, c) in enumerate(pos):
+        if not c["description"]:
+            c["description"] = body[b:pos[i + 1][0] if i + 1 < len(pos) else len(body)].strip()[:300]
+            c["from_item_dictionary"] = True
 
 
 def ags_fetch(layer, dest, where=None):
