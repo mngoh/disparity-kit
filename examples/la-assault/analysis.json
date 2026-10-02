@@ -1,0 +1,27 @@
+{
+  "title": "Assault victims in Los Angeles",
+  "author": "Martin Ngoh",
+  "place": {"name": "Los Angeles", "short": "LA", "census_geoid": "16000US0644000"},
+  "acs_release": "acs2024_5yr",
+  "window": {"start": "2020-01-01", "end": "2023-12-31"},
+  "event": {"noun": "assault", "plural": "assaults", "verb": "assaulted"},
+  "incidents": [
+    {"path": "data/eda_data.csv", "kind": "simple"},
+    {"path": "data/eda_data_deadly.csv", "kind": "aggravated"}
+  ],
+  "kind_labels": {"simple": "Simple assault", "aggravated": "Aggravated assault"},
+  "columns": {"id": "div_record", "date": "incident_date", "race": "vict_race", "sex": "vict_sex", "age": "vict_age",
+              "lat": "lat", "lon": "lon", "district": "area_name", "premise": "premise", "weapon": "weapon_def", "code": "crime_code"},
+  "race_map": {"B": "Black", "H": "Hispanic", "W": "White", "A": "Asian", "C": "Asian", "F": "Asian", "J": "Asian",
+               "K": "Asian", "V": "Asian", "Z": "Asian", "D": "Asian", "L": "Asian"},
+  "groups": ["Black", "Hispanic", "White", "Asian"],
+  "focus": {"group": "Black", "sex": "F", "label": "Black women"},
+  "flags": {"partner": {"column": "code", "values": ["626", "236"], "label": "Intimate partner"}},
+  "districts": {"geojson_url": "https://services5.arcgis.com/7nsPwEMP38bSkCjy/arcgis/rest/services/LAPD_Division/FeatureServer/0/query?where=1%3D1&outFields=*&outSR=4326&f=geojson",
+                "name_field": "APREC", "label": "LAPD division",
+                "rename": {"77TH STREET": "77th Street", "NORTH HOLLYWOOD": "N Hollywood", "WEST LOS ANGELES": "West LA"}},
+  "covariates": [{"path": "data/lahsa_tracts.csv", "label": "tract homelessness"}],
+  "headline": "Black women in LA are assaulted at 3 to 6 times the rate of Hispanic and White women, and nothing we measured explains why.",
+  "sources": ["LAPD Crime Data from 2020 to 2024 (data.lacity.org)", "US Census Bureau ACS 2020 to 2024 via Census Reporter", "LA GeoHub LAPD divisions", "LAHSA 2024 Homeless Count"],
+  "links": {"code": "https://github.com/mngoh/LA-Crime", "home": "https://martinngoh.com"}
+}
