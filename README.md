@@ -2,7 +2,7 @@
 
 Claude Code skills for race and sex disparity analysis of public police data: from a raw incident file to a published, caveated findings page.
 
-Built from the [Los Angeles assault analysis](https://mngoh.github.io/LA-Crime/) ([code](https://github.com/mngoh/LA-Crime)), and tested by reproducing it from a config file.
+Built from the [Los Angeles assault analysis](https://mngoh.github.io/Los-Angeles-CA-Assault-Victim-Rates-by-Race-and-Sex-2020-2023/) ([code](https://github.com/mngoh/Los-Angeles-CA-Assault-Victim-Rates-by-Race-and-Sex-2020-2023)), and tested by reproducing it from a config file.
 
 ## Skills
 

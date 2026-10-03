@@ -23,5 +23,5 @@
   "covariates": [{"path": "data/lahsa_tracts.csv", "label": "tract homelessness"}],
   "headline": "Black women in LA are assaulted at 3 to 6 times the rate of Hispanic and White women, and nothing we measured explains why.",
   "sources": ["LAPD Crime Data from 2020 to 2024 (data.lacity.org)", "US Census Bureau ACS 2020 to 2024 via Census Reporter", "LA GeoHub LAPD divisions", "LAHSA 2024 Homeless Count"],
-  "links": {"code": "https://github.com/mngoh/LA-Crime", "home": "https://martinngoh.com"}
+  "links": {"code": "https://github.com/mngoh/Los-Angeles-CA-Assault-Victim-Rates-by-Race-and-Sex-2020-2023", "home": "https://martinngoh.com"}
 }
