@@ -55,7 +55,8 @@ def reader(path):
     names = {pathlib.PurePosixPath(n).name.lower(): n for n in z.namelist() if n.lower().endswith(".csv")}
 
     def read(table, usecols=None, **kw):
-        d = pd.read_csv(io.BytesIO(z.read(names[f"{table.lower()}.csv"])), low_memory=False, **kw)
+        # a few state files carry non-UTF-8 bytes in names (California's agencies.csv has a Latin-1 0xA0)
+        d = pd.read_csv(io.BytesIO(z.read(names[f"{table.lower()}.csv"])), low_memory=False, encoding_errors="replace", **kw)
         d.columns = [c.lower() for c in d.columns]  # older years use upper case
         return d[usecols] if usecols else d
     return read
