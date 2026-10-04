@@ -67,3 +67,11 @@ examples/     la-assault/analysis.json
 ## Limits
 
 The kit computes; it does not decide. Which offenses count, which groups to compare and what a result means stay with the analyst, and the skills ask rather than guess. Police data counts reports that reached the police, by race as officers recorded it; every page says so.
+
+## Tests
+
+```bash
+.venv/bin/python -m unittest tests.test_kit
+```
+
+Age bands, weapon classes, ACS band slicing, and an end-to-end run of `analyze.py` on a synthetic project with known counts (rates, ratios, the race-coding bound, age standardization).
