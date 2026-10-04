@@ -4,6 +4,17 @@ Claude Code skills for race and sex disparity analysis of public police data: fr
 
 Built from the [Los Angeles assault analysis](https://mngoh.github.io/Los-Angeles-CA-Assault-Victim-Rates-by-Race-and-Sex-2020-2023/) ([code](https://github.com/mngoh/Los-Angeles-CA-Assault-Victim-Rates-by-Race-and-Sex-2020-2023)), and tested by reproducing it from a config file.
 
+## What it has produced
+
+| Analysis | Source | Result |
+|---|---|---|
+| [59 large US cities, 2022 to 2025](https://mngoh.github.io/US-Large-Cities-Assault-Victim-Rates-by-Race-and-Sex-2022-2025/) | FBI NIBRS, 59 departments | Black women's police-recorded assault rate about 3.8x White women's in the typical city, higher in every city |
+| [What that number measures](https://mngoh.github.io/Police-Records-vs-Survey-Assault-Victims-by-Race-and-Sex-2015-2025/) | NCVS, NHAMCS, 911 calls in four cities | Hospitals see the same gap; the survey does not; police recording adds little |
+| [Nine cities side by side](https://mngoh.github.io/Nine-Cities-Assault-Victim-Rates-by-Race-and-Sex-2020-2025/) | FBI NIBRS and city records | The pattern holds in all nine |
+| [Los Angeles](https://mngoh.github.io/Los-Angeles-CA-Assault-Victim-Rates-by-Race-and-Sex-2020-2023/), [DC](https://mngoh.github.io/DC-Assault-Victims-by-Race-and-Sex-2022-2025/), [Baltimore](https://mngoh.github.io/Baltimore-MD-Assault-Victim-Rates-by-Race-and-Sex-2022-2024/), [Dallas](https://mngoh.github.io/Dallas-TX-Assault-Victim-Rates-by-Race-and-Sex-2022-2025/) | City records and NIBRS | Single-city analyses with tract models, replication and city-specific checks |
+
+The seven cities analyzed first were run again through the 59-city pipeline on the same data: every rate and ratio matched exactly.
+
 ## Skills
 
 | Skill | Does |
