@@ -265,7 +265,7 @@ def main():
              ("Neighborhoods", str(nbj["in_groups"]), "residential 2020 NTAs"), ("Planned tests", str(len(R["primary"])), "Holm-corrected")]
     cards_html = '<div class="cards">' + "".join(f'<div class="card"><div class="label">{esc(l)}</div><div class="value">{v}</div><div class="sub">{esc(s)}</div></div>' for l, v, s in cards) + "</div>"
     links = pg.get("links", {})
-    nav = "".join(f'<a href="{esc(u)}">{esc(t)}</a>' for t, u in [("Plan", "PLAN.md"), ("Code", links.get("code")), ("Residents Count", links.get("home"))] if u)
+    nav = "".join(f'<a href="{esc(u)}">{esc(t)}</a>' for t, u in [("Plan", links["code"] + "/blob/main/PLAN.md" if links.get("code") else "PLAN.md"), ("Code", links.get("code")), ("Residents Count", links.get("home"))] if u)
     lede = F(pg.get("headline", cfg["title"]))
     answer = "".join(f"<p>{esc(F(s))}</p>" for s in pg.get("answer", []))
     extra_css = ("<style>.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:16px}"
