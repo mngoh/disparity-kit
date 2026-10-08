@@ -59,16 +59,16 @@ def main():
 
     # headline and answer
     ranked = sorted(others, key=lambda g: ratios.get(g, 0))
-    lede = cfg.get("headline") or (f"{p.focus_label} in {place.get('short', place['name'])} are {ev['verb']} at "
-                                   f"{listing(x(ratios[g]) for g in ranked)} times the rate of {listing(ranked)} {sexw}.")
-    answer = [f"Per 100,000 residents a year, {p.focus_label} are {ev['verb']} {fmt(fr)} times: " +
-              ", ".join(f"{x(ratios[g])} times {g} {sexw}" for g in ranked) + "."]
+    lede = cfg.get("headline") or (f"The reported {ev['noun']} rate for {p.focus_label} in {place.get('short', place['name'])} is "
+                                   f"{listing(x(ratios[g]) for g in ranked)} times that of {listing(ranked)} {sexw}.")
+    answer = [f"Per 100,000 residents a year, the reported {ev['noun']} rate for {p.focus_label} is {fmt(fr)}: " +
+              ", ".join(f"{x(ratios[g])} times {g} {sexw}'s" for g in ranked) + "."]
     if M:
         final = M["ladder"][-1]
         answer.append(f"Adjusted for age, year, {cfg.get('districts', {}).get('label', 'district')}, neighborhood socioeconomics"
                       f"{' and ' + ', '.join(c['label'] for c in cfg.get('covariates', [])) if cfg.get('covariates') else ''}, "
                       f"the gap against all other {sexw} is {final['rate_ratio']}x (95% CI {final['ci_low']} to {final['ci_high']}).")
-    question = cfg.get("question", f"Are {p.focus_label} {ev['verb']} at a higher rate than other {sexw}, and do the obvious explanations account for it?")
+    question = cfg.get("question", f"Is the reported {ev['noun']} rate for {p.focus_label} higher than for other {sexw}, and do the obvious explanations account for it?")
 
     charts, js = [], []  # (section html) and chart scripts
 
@@ -201,7 +201,7 @@ def main():
 
     # caveats
     c = R["counts"]
-    cav = [("This shows what, not why", f"The data says {p.focus_label} are {ev['verb']} at a higher rate. It does not say why. Nothing here measures causes, offenders or circumstances."),
+    cav = [("This shows what, not why", f"The data says the reported {ev['noun']} rate for {p.focus_label} is higher. It does not say why. Nothing here measures causes, offenders or circumstances."),
            ("Reported crimes only", "Every number is a report that reached the police. Willingness to report, and recording practice, differ by group, area and time."),
            ("Reports, not people", f"Rates count reports. Someone {ev['verb']} twice counts twice, so a rate is not the share of people {ev['verb']}."),
            ("Exposure is not population", "Rates divide by where people live, not where they spend time.")]
