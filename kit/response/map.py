@@ -9,7 +9,8 @@ calls typically waited 30% longer than the city's typical wait for the same kind
 is still compared with its own call type. A switch flips between tiers; map.html#<tier> opens on one.
 
 Neighborhoods are shaded (no overlapping marks), boroughs or other config "area" groups are outlined and named,
-and areas without residents are left plain. Colors are a diverging scale (shorter in blue, longer in red,
+and areas without residents are left plain. Text sizes and colors use the host page's tokens (--rc-fs-small,
+--rc-text and the rest) when it has them; area names are rescaled to stay at the small text size at any map width. Colors are a diverging scale (shorter in blue, longer in red,
 within 10% gray) in log-symmetric bins, checked with the dataviz palette validator on the dark page: every
 adjacent pair clears color-blind and normal-vision separation.
 """
@@ -112,26 +113,26 @@ def fragment(nbhd_paths, outlines, labels_xy, data, order, tier_labels, notes, H
     label_svg = "".join(f'<text x="{x}" y="{y}">{html.escape(a)}</text>' for a, x, y in labels_xy)
     return f"""<figure class="rcm" id="rcm">
 <style>
-.rcm{{margin:32px 0;font-family:var(--rc-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif);font-size:14px;color:#c4c4c4}}
-.rcm figcaption strong{{display:block;font-size:18px;color:#f2f2f2;margin-bottom:4px}}
+.rcm{{margin:32px 0;font-family:var(--rc-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif);font-size:var(--rc-fs-small,14px);color:var(--rc-text-2,#c4c4c4)}}
+.rcm figcaption strong{{display:block;font-size:var(--rc-fs-body,18px);color:var(--rc-text,#f2f2f2);margin-bottom:4px}}
 .rcm .rcm-tabs{{display:flex;gap:8px;margin:14px 0 10px;flex-wrap:wrap}}
-.rcm .rcm-tabs button{{font:inherit;font-size:14px;color:#f2f2f2;background:transparent;border:1px solid #4a4a4a;border-radius:4px;padding:7px 14px;cursor:pointer}}
-.rcm .rcm-tabs button[aria-pressed="true"]{{background:#f2f2f2;color:#0b0b0b;border-color:#f2f2f2}}
-.rcm .rcm-note{{margin:0 0 8px;color:#9a9a9a}}
+.rcm .rcm-tabs button{{font:inherit;color:var(--rc-text,#f2f2f2);background:transparent;border:1px solid var(--rc-rule-strong,#4a4a4a);border-radius:4px;padding:7px 14px;cursor:pointer}}
+.rcm .rcm-tabs button[aria-pressed="true"]{{background:var(--rc-text,#f2f2f2);color:var(--rc-bg,#0b0b0b);border-color:var(--rc-text,#f2f2f2)}}
+.rcm .rcm-note{{margin:0 0 8px;color:var(--rc-text-3,#9a9a9a)}}
 .rcm .rcm-wrap{{position:relative}}
 .rcm svg{{display:block;width:100%;height:auto}}
-.rcm .rcm-n path{{fill:url(#rcm-hatch);stroke:#0b0b0b;stroke-width:.7;stroke-linejoin:round}}
+.rcm .rcm-n path{{fill:url(#rcm-hatch);stroke:var(--rc-bg,#0b0b0b);stroke-width:.7;stroke-linejoin:round}}
 .rcm .rcm-n path.has{{cursor:pointer}}
-.rcm .rcm-n path.on{{stroke:#f2f2f2;stroke-width:2}}
+.rcm .rcm-n path.on{{stroke:var(--rc-text,#f2f2f2);stroke-width:2}}
 .rcm .rcm-b path{{fill:none;stroke:#bdbdb8;stroke-width:1.4;stroke-linejoin:round;pointer-events:none}}
-.rcm .rcm-l text{{font-size:14px;font-weight:700;fill:#f2f2f2;stroke:#0b0b0b;stroke-width:4px;paint-order:stroke;text-anchor:middle;pointer-events:none}}
+.rcm .rcm-l text{{font-size:var(--rc-fs-small,14px);font-weight:700;fill:var(--rc-text,#f2f2f2);stroke:var(--rc-bg,#0b0b0b);stroke-width:4px;paint-order:stroke;text-anchor:middle;pointer-events:none}}
 .rcm .rcm-legend{{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px}}
 .rcm .rcm-key{{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}}
 .rcm .rcm-key i{{width:12px;height:12px;border-radius:2px;display:inline-block;box-sizing:border-box}}
-.rcm .rcm-tip{{position:absolute;pointer-events:none;background:#161616;border:1px solid #3a3a3a;border-radius:4px;padding:8px 10px;color:#f2f2f2;font-size:14px;line-height:1.45;max-width:240px;display:none;z-index:2}}
+.rcm .rcm-tip{{position:absolute;pointer-events:none;background:var(--rc-raised,#161616);border:1px solid #3a3a3a;border-radius:4px;padding:8px 10px;color:var(--rc-text,#f2f2f2);line-height:1.45;max-width:240px;display:none;z-index:2}}
 .rcm .rcm-tip b{{display:block}}
-.rcm .rcm-source{{color:#9a9a9a;margin:10px 0 0}}
-.rcm details{{margin-top:10px}} .rcm summary{{cursor:pointer;font-weight:700;color:#c4c4c4}}
+.rcm .rcm-source{{color:var(--rc-text-3,#9a9a9a);margin:10px 0 0}}
+.rcm details{{margin-top:10px}} .rcm summary{{cursor:pointer;font-weight:700;color:var(--rc-text-2,#c4c4c4)}}
 .rcm table{{border-collapse:collapse;width:100%;margin-top:8px}} .rcm th,.rcm td{{text-align:left;padding:4px 8px;border-bottom:1px solid #262626}}
 .rcm .rcm-scroll{{max-height:320px;overflow:auto}}
 </style>
@@ -148,6 +149,9 @@ var B={json.dumps([[lo, hi, c] for lo, hi, _, c in BINS])}, t0={json.dumps(order
 function col(v){{for(var i=0;i<B.length;i++)if(v>=B[i][0]&&v<B[i][1])return B[i][2];return B[B.length-1][2];}}
 function vs(v){{var p=Math.abs(Math.round(v*100));return p===0?'Same as the city':p+'% '+(v>0?'longer':'shorter')+' than the city';}}
 var paths=document.querySelectorAll('#rcm-n path'),tip=document.getElementById('rcm-tip'),wrap=tip.parentNode;
+var svg=wrap.querySelector('svg'),labels=svg.querySelectorAll('.rcm-l text'),fs=parseFloat(getComputedStyle(document.getElementById('rcm')).fontSize);
+function fit(){{var w=svg.getBoundingClientRect().width;if(!w)return;var k={W}/w;labels.forEach(function(t){{t.style.fontSize=fs*k+'px';t.style.strokeWidth=4*k+'px';}});}}
+fit();window.addEventListener('resize',fit);
 function tipHtml(d){{return '<b>'+d.name+'</b>'+d.area+'<br>Median wait: '+d.med.toFixed(1)+' min<br>'+vs(d.idx)+' for the same call types<br>'+d.n.toLocaleString('en-US')+' calls a year<br>Median household income: '+(d.income?'$'+d.income.toLocaleString('en-US')+(d.capped?' or more':''):'n/a')+'<br>'+(MK[d.makeup]||d.makeup||'');}}
 function hide(){{tip.style.display='none';var o=document.querySelector('#rcm-n .on');if(o)o.classList.remove('on');}}
 function show(e,el){{var d=D[cur][el.dataset.id];if(!d){{hide();return;}}tip.innerHTML=tipHtml(d);tip.style.display='block';var r=wrap.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
