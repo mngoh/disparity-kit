@@ -112,7 +112,7 @@ def fragment(nbhd_paths, outlines, labels_xy, data, order, tier_labels, notes, H
     label_svg = "".join(f'<text x="{x}" y="{y}">{html.escape(a)}</text>' for a, x, y in labels_xy)
     return f"""<figure class="rcm" id="rcm">
 <style>
-.rcm{{margin:32px 0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;color:#c4c4c4}}
+.rcm{{margin:32px 0;font-family:var(--rc-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif);font-size:14px;color:#c4c4c4}}
 .rcm figcaption strong{{display:block;font-size:18px;color:#f2f2f2;margin-bottom:4px}}
 .rcm .rcm-tabs{{display:flex;gap:8px;margin:14px 0 10px;flex-wrap:wrap}}
 .rcm .rcm-tabs button{{font:inherit;font-size:14px;color:#f2f2f2;background:transparent;border:1px solid #4a4a4a;border-radius:4px;padding:7px 14px;cursor:pointer}}
