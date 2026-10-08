@@ -1,4 +1,4 @@
-"""Bubble map: one bubble per neighborhood, sized by calls, colored by how long they waited against the city.
+"""Map: every neighborhood shaded by how long its calls waited against the city, with a switch between tiers of calls.
 
   python map.py response.json      ->  <project>/map.html (standalone) and out/map_fragment.html (to embed)
 
@@ -6,9 +6,12 @@ For each call from the public with an arrival (main periods), the wait is divide
 for the same call type and priority. A neighborhood's value is the median of those ratios: "+30%" means its
 calls typically waited 30% longer than the city's typical wait for the same kind of call. Tiers (config
 "map.tiers") pool priorities, for example urgent (Critical, Serious) and less urgent (the rest); each call
-is still compared with its own call type. Bubble area is calls a year. A switch flips between tiers.
-Colors are a diverging scale (shorter in blue, longer in red, within 10% gray) in log-symmetric bins, checked with
-the dataviz palette validator on the dark page: every adjacent pair clears color-blind and normal-vision separation.
+is still compared with its own call type. A switch flips between tiers; map.html#<tier> opens on one.
+
+Neighborhoods are shaded (no overlapping marks), boroughs or other config "area" groups are outlined and named,
+and areas without residents are left plain. Colors are a diverging scale (shorter in blue, longer in red,
+within 10% gray) in log-symmetric bins, checked with the dataviz palette validator on the dark page: every
+adjacent pair clears color-blind and normal-vision separation.
 """
 import html
 import json
@@ -17,6 +20,7 @@ import sys
 
 import pandas as pd
 from shapely.geometry import shape
+from shapely.ops import unary_union
 
 from rt import RTProject
 
@@ -24,7 +28,17 @@ BINS = [(-1e9, -1 / 3, "33% or more shorter", "#9cc8ff"), (-1 / 3, -0.2, "20 to 
         (-0.2, -0.1, "10 to 20% shorter", "#34598f"), (-0.1, 0.1, "Within 10%", "#3a3a38"),
         (0.1, 0.25, "10 to 25% longer", "#93423a"), (0.25, 0.5, "25 to 50% longer", "#ec6556"),
         (0.5, 1e9, "50% or more longer", "#ffb3a8")]
+NO_RESIDENTS = "#1c1c1c"
 W = 760
+
+
+def path_d(s, px):
+    polys = s.geoms if s.geom_type == "MultiPolygon" else [s]
+    out = ""
+    for poly in polys:
+        for ring in [poly.exterior] + list(poly.interiors):
+            out += "M" + "L".join(f"{a},{b}" for a, b in (px(*c) for c in ring.coords)) + "Z"
+    return out
 
 
 def main():
@@ -48,43 +62,34 @@ def main():
     d = d[d["in_groups"]]
     d.to_csv(p.out / "map_index.csv", index=False)
 
-    # geometry: neighborhood shapes for the base, a point inside each for the bubble
     g = cfg["geo"]["neighborhoods"]
     feats = json.loads((p.cache / "neighborhoods.geojson").read_text())["features"]
-    shapes = {str(f["properties"][g["id"]]): shape(f["geometry"]) for f in feats}
+    shapes = {str(f["properties"][g["id"]]): shape(f["geometry"]).simplify(0.0003) for f in feats}
+    areas = {str(f["properties"][g["id"]]): f["properties"].get(g.get("area", ""), "") for f in feats}
     b = [s.bounds for s in shapes.values()]
     x0, y0, x1, y1 = min(t[0] for t in b), min(t[1] for t in b), max(t[2] for t in b), max(t[3] for t in b)
     k = math.cos(math.radians((y0 + y1) / 2))
     sc = W / ((x1 - x0) * k)
     H = round((y1 - y0) * sc)
     px = lambda lon, lat: (round((lon - x0) * k * sc, 1), round((y1 - lat) * sc, 1))
-    paths = []
-    for i, s in shapes.items():
-        s = s.simplify(0.0004)
-        polys = s.geoms if s.geom_type == "MultiPolygon" else [s]
-        dd = ""
-        for poly in polys:
-            pts = [px(*c) for c in poly.exterior.coords]
-            dd += "M" + "L".join(f"{a},{c}" for a, c in pts) + "Z"
-        paths.append(dd)
+    nbhd_paths = {i: path_d(s, px) for i, s in shapes.items()}
+    outlines, labels_xy = [], []
+    for area in sorted(set(areas.values()) - {""}):
+        u = unary_union([s.buffer(0.0002) for i, s in shapes.items() if areas[i] == area]).buffer(-0.0002)
+        outlines.append(path_d(u.simplify(0.0004), px))
+        pt = m.get("label_points", {}).get(area)
+        x, y = px(*pt) if pt else px(*u.representative_point().coords[0])
+        labels_xy.append((area, x, y))
     data = {}
     for tier, t in d.groupby("tier"):
-        nmax = t["n"].max()
-        data[tier] = []
-        for r in t.itertuples():
-            pt = shapes[r.nbhd].representative_point()
-            x, y = px(pt.x, pt.y)
-            data[tier].append({"id": r.nbhd, "name": r.name, "area": r.area, "x": x, "y": y,
-                               "r": round(2 + 16 * math.sqrt(r.n / nmax), 1), "n": round(r.n / years),
-                               "med": round(r.med, 1), "idx": round(r.idx, 3),
+        data[tier] = {r.nbhd: {"name": r.name, "area": r.area, "n": round(r.n / years), "med": round(r.med, 1), "idx": round(r.idx, 3),
                                "income": int(r.median_income) if r.median_income == r.median_income else None,
-                               "capped": bool(r.income_capped), "makeup": r.makeup})
-        data[tier].sort(key=lambda z: -z["r"])
+                               "capped": bool(r.income_capped), "makeup": r.makeup} for r in t.itertuples()}
     order = list(tiers)
-    labels = {k: v["label"] for k, v in tiers.items()}
+    tier_labels = {k: v["label"] for k, v in tiers.items()}
     notes = {k: v.get("note", "") for k, v in tiers.items()}
-    makeup = {k: v for k, v in cfg["analysis"]["groupings"]["makeup"].get("level_labels", {}).items()}
-    frag = fragment(paths, data, order, labels, notes, H, makeup, m)
+    makeup = cfg["analysis"]["groupings"]["makeup"].get("level_labels", {})
+    frag = fragment(nbhd_paths, outlines, labels_xy, data, order, tier_labels, notes, H, makeup, m)
     (p.out / "map_fragment.html").write_text(frag)
     page = f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -97,11 +102,14 @@ main{{max-width:{W}px;margin:0 auto;padding:24px 16px}}</style></head>
     print("wrote", out, "and", p.out / "map_fragment.html")
 
 
-def fragment(paths, data, order, labels, notes, H, makeup, m):
+def fragment(nbhd_paths, outlines, labels_xy, data, order, tier_labels, notes, H, makeup, m):
     legend = "".join(f'<span class="rcm-key"><i style="background:{c}"></i>{html.escape(lab)}</span>' for _, _, lab, c in BINS)
-    buttons = "".join(f'<button type="button" data-tier="{k}" aria-pressed="{"true" if i == 0 else "false"}">{html.escape(labels[k])}</button>'
+    legend += f'<span class="rcm-key"><i style="background:repeating-linear-gradient(45deg,#2e2e2e 0 1.5px,{NO_RESIDENTS} 1.5px 4px)"></i>No residents (parks, airports)</span>'
+    buttons = "".join(f'<button type="button" data-tier="{k}" aria-pressed="{"true" if i == 0 else "false"}">{html.escape(tier_labels[k])}</button>'
                       for i, k in enumerate(order))
-    base = "".join(f'<path d="{d}"/>' for d in paths)
+    shapes_svg = "".join(f'<path data-id="{i}" d="{dd}"/>' for i, dd in nbhd_paths.items())
+    outline_svg = "".join(f'<path d="{dd}"/>' for dd in outlines)
+    label_svg = "".join(f'<text x="{x}" y="{y}">{html.escape(a)}</text>' for a, x, y in labels_xy)
     return f"""<figure class="rcm" id="rcm">
 <style>
 .rcm{{margin:32px 0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;color:#c4c4c4}}
@@ -112,13 +120,14 @@ def fragment(paths, data, order, labels, notes, H, makeup, m):
 .rcm .rcm-note{{margin:0 0 8px;color:#9a9a9a}}
 .rcm .rcm-wrap{{position:relative}}
 .rcm svg{{display:block;width:100%;height:auto}}
-.rcm .rcm-base path{{fill:#161616;stroke:#2b2b2b;stroke-width:.6}}
-.rcm circle{{stroke:#0b0b0b;stroke-width:1;cursor:pointer}}
-.rcm circle.mid{{stroke:#8a8a86;stroke-width:.8}}
-.rcm circle:hover,.rcm circle.on{{stroke:#f2f2f2;stroke-width:1.5}}
+.rcm .rcm-n path{{fill:url(#rcm-hatch);stroke:#0b0b0b;stroke-width:.7;stroke-linejoin:round}}
+.rcm .rcm-n path.has{{cursor:pointer}}
+.rcm .rcm-n path.on{{stroke:#f2f2f2;stroke-width:2}}
+.rcm .rcm-b path{{fill:none;stroke:#bdbdb8;stroke-width:1.4;stroke-linejoin:round;pointer-events:none}}
+.rcm .rcm-l text{{font-size:14px;font-weight:700;fill:#f2f2f2;stroke:#0b0b0b;stroke-width:4px;paint-order:stroke;text-anchor:middle;pointer-events:none}}
 .rcm .rcm-legend{{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px}}
 .rcm .rcm-key{{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}}
-.rcm .rcm-key i{{width:12px;height:12px;border-radius:50%;display:inline-block}}
+.rcm .rcm-key i{{width:12px;height:12px;border-radius:2px;display:inline-block;box-sizing:border-box}}
 .rcm .rcm-tip{{position:absolute;pointer-events:none;background:#161616;border:1px solid #3a3a3a;border-radius:4px;padding:8px 10px;color:#f2f2f2;font-size:14px;line-height:1.45;max-width:240px;display:none;z-index:2}}
 .rcm .rcm-tip b{{display:block}}
 .rcm .rcm-source{{color:#9a9a9a;margin:10px 0 0}}
@@ -127,32 +136,32 @@ def fragment(paths, data, order, labels, notes, H, makeup, m):
 .rcm .rcm-scroll{{max-height:320px;overflow:auto}}
 </style>
 <figcaption><strong>{html.escape(m.get('title', 'How long calls waited, by neighborhood'))}</strong>{html.escape(m.get('subtitle', ''))}</figcaption>
-<div class="rcm-tabs" role="group" aria-label="Call type">{buttons}</div>
+<div class="rcm-tabs" role="group" aria-label="Calls shown">{buttons}</div>
 <p class="rcm-note" id="rcm-note"></p>
-<div class="rcm-wrap"><svg viewBox="0 0 {W} {H}" role="img" aria-label="{html.escape(m.get('aria', 'Map of neighborhoods'))}"><g class="rcm-base">{base}</g><g id="rcm-dots"></g></svg><div class="rcm-tip" id="rcm-tip"></div></div>
-<div class="rcm-legend">{legend}<span class="rcm-key">Bubble size: calls a year</span></div>
+<div class="rcm-wrap"><svg viewBox="0 0 {W} {H}" role="img" aria-label="{html.escape(m.get('aria', 'Map of neighborhoods'))}"><defs><pattern id="rcm-hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="{NO_RESIDENTS}"/><line x1="0" y1="0" x2="0" y2="5" stroke="#2e2e2e" stroke-width="1.5"/></pattern></defs><g class="rcm-n" id="rcm-n">{shapes_svg}</g><g class="rcm-b">{outline_svg}</g><g class="rcm-l">{label_svg}</g></svg><div class="rcm-tip" id="rcm-tip"></div></div>
+<div class="rcm-legend">{legend}</div>
 <p class="rcm-source">{html.escape(m.get('source', ''))}</p>
 <details><summary>Show the numbers</summary><div class="rcm-scroll"><table id="rcm-table"></table></div></details>
 <script>(function(){{
 var D={json.dumps(data, separators=(',', ':'))}, N={json.dumps(notes)}, MK={json.dumps(makeup)};
-var B={json.dumps([[lo, hi, c] for lo, hi, _, c in BINS])};
+var B={json.dumps([[lo, hi, c] for lo, hi, _, c in BINS])}, t0={json.dumps(order[0])}, cur;
 function col(v){{for(var i=0;i<B.length;i++)if(v>=B[i][0]&&v<B[i][1])return B[i][2];return B[B.length-1][2];}}
-function pct(v){{var p=Math.round(v*100);return (p>0?'+':'')+p+'%';}}
 function vs(v){{var p=Math.abs(Math.round(v*100));return p===0?'Same as the city':p+'% '+(v>0?'longer':'shorter')+' than the city';}}
-var g=document.getElementById('rcm-dots'),tip=document.getElementById('rcm-tip'),wrap=tip.parentNode,ns='http://www.w3.org/2000/svg';
+var paths=document.querySelectorAll('#rcm-n path'),tip=document.getElementById('rcm-tip'),wrap=tip.parentNode;
 function tipHtml(d){{return '<b>'+d.name+'</b>'+d.area+'<br>Median wait: '+d.med.toFixed(1)+' min<br>'+vs(d.idx)+' for the same call types<br>'+d.n.toLocaleString('en-US')+' calls a year<br>Median household income: '+(d.income?'$'+d.income.toLocaleString('en-US')+(d.capped?' or more':''):'n/a')+'<br>'+(MK[d.makeup]||d.makeup||'');}}
-function show(e,d,c){{tip.innerHTML=tipHtml(d);tip.style.display='block';var r=wrap.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+function hide(){{tip.style.display='none';var o=document.querySelector('#rcm-n .on');if(o)o.classList.remove('on');}}
+function show(e,el){{var d=D[cur][el.dataset.id];if(!d){{hide();return;}}tip.innerHTML=tipHtml(d);tip.style.display='block';var r=wrap.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
  tip.style.left=Math.min(Math.max(0,x+12),r.width-tip.offsetWidth)+'px';tip.style.top=Math.max(0,y-tip.offsetHeight-12)+'px';
- var o=g.querySelector('.on');if(o)o.classList.remove('on');c.classList.add('on');}}
-function draw(t){{g.textContent='';D[t].forEach(function(d){{var c=document.createElementNS(ns,'circle');c.setAttribute('cx',d.x);c.setAttribute('cy',d.y);c.setAttribute('r',d.r);c.setAttribute('fill',col(d.idx));if(Math.abs(d.idx)<0.1)c.setAttribute('class','mid');
- c.addEventListener('mousemove',function(e){{show(e,d,c);}});c.addEventListener('click',function(e){{show(e,d,c);e.stopPropagation();}});c.addEventListener('mouseleave',function(){{tip.style.display='none';c.classList.remove('on');}});g.appendChild(c);}});
+ var o=document.querySelector('#rcm-n .on');if(o&&o!==el)o.classList.remove('on');el.classList.add('on');el.parentNode.appendChild(el);}}
+paths.forEach(function(el){{el.addEventListener('mousemove',function(e){{show(e,el);}});el.addEventListener('click',function(e){{show(e,el);e.stopPropagation();}});el.addEventListener('mouseleave',hide);}});
+function draw(t){{cur=t;hide();paths.forEach(function(el){{var d=D[t][el.dataset.id];el.style.fill=d?col(d.idx):'';el.classList.toggle('has',!!d);}});
  document.getElementById('rcm-note').textContent=N[t]||'';
- var rows=D[t].slice().sort(function(a,b){{return b.idx-a.idx;}});
- document.getElementById('rcm-table').innerHTML='<tr><th>Neighborhood</th><th>Median wait</th><th>Against the city</th><th>Calls a year</th></tr>'+rows.map(function(d){{return '<tr><td>'+d.name+'</td><td>'+d.med.toFixed(1)+' min</td><td>'+pct(d.idx)+'</td><td>'+d.n.toLocaleString('en-US')+'</td></tr>';}}).join('');
+ var rows=Object.values(D[t]).sort(function(a,b){{return b.idx-a.idx;}});
+ document.getElementById('rcm-table').innerHTML='<tr><th>Neighborhood</th><th>Median wait</th><th>Against the city</th><th>Calls a year</th></tr>'+rows.map(function(d){{return '<tr><td>'+d.name+'</td><td>'+d.med.toFixed(1)+' min</td><td>'+vs(d.idx)+'</td><td>'+d.n.toLocaleString('en-US')+'</td></tr>';}}).join('');
  document.querySelectorAll('#rcm .rcm-tabs button').forEach(function(b){{b.setAttribute('aria-pressed',b.dataset.tier===t?'true':'false');}});}}
-document.querySelectorAll('#rcm .rcm-tabs button').forEach(function(b){{b.addEventListener('click',function(){{tip.style.display='none';draw(b.dataset.tier);}});}});
-document.addEventListener('click',function(){{tip.style.display='none';}});
-draw(D[location.hash.slice(1)]?location.hash.slice(1):{json.dumps(order[0])});
+document.querySelectorAll('#rcm .rcm-tabs button').forEach(function(b){{b.addEventListener('click',function(){{draw(b.dataset.tier);}});}});
+document.addEventListener('click',hide);
+draw(D[location.hash.slice(1)]?location.hash.slice(1):t0);
 }})();</script>
 </figure>"""
 
