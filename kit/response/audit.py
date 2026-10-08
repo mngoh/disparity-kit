@@ -102,6 +102,8 @@ def main():
             row[plab[pr]] = f"{v:,} ({pct(v / tot.get(pr, np.nan))})"
         rows.append(row)
     out["origin"] = org.to_dict("records")
+    out["origin_totals"] = {k: int(v) for k, v in org.groupby("origin")["n"].sum().items()}
+    out["origin_totals"]["not_public"] = sum(v for k, v in out["origin_totals"].items() if k != "public")
     md += ["## Who started each event", "",
            "The data has no field for whether an event came from a 911 call or from an officer. "
            "These rules from the config separate them; everything else counts as a call from the public.", "",
@@ -122,9 +124,11 @@ def main():
     o = con.execute("""SELECT nbhd, priority, count(*) n_all, avg((origin<>'public')::INT) not_public,
         avg((origin='on_scene')::INT) on_scene FROM c WHERE residential GROUP BY 1, 2""").df()
     g = g.merge(o, on=["nbhd", "priority"], how="left")
+    g = g.sort_values(["nbhd", "priority"])
     g.to_csv(p.out / "audit_by_neighborhood.csv", index=False)
     d = con.execute(f"""SELECT district, priority, count(*) n, avg(in_district::INT) in_own_polygon, {flag_sql}
         FROM c WHERE origin='public' GROUP BY 1, 2""").df()
+    d = d.sort_values(["district", "priority"])
     d.to_csv(p.out / "audit_by_district.csv", index=False)
     min_n = 200
     md += ["## How the checks vary across neighborhoods", "",
